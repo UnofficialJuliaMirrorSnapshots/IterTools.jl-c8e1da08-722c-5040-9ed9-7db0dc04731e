@@ -26,7 +26,10 @@ export
     ncycle,
     ivec,
     flagfirst,
-    takewhile
+    takewhile,
+    properties,
+    propertyvalues,
+    fieldvalues
 
 function has_length(it)
     it_size = IteratorSize(it)
@@ -907,5 +910,101 @@ end
 Base.IteratorSize(it::TakeWhile) = Base.SizeUnknown()
 eltype(::Type{TakeWhile{I}}) where {I} = eltype(I)
 IteratorEltype(::Type{TakeWhile{I}}) where {I} = IteratorEltype(I)
+
+# Properties
+
+struct Properties{T}
+    x::T
+    n::Int
+    names
+end
+
+"""
+    properties(x)
+
+Iterate through the names and value of the properties of `x`.
+
+```jldoctest
+julia> collect(properties(1 + 2im))
+2-element Array{Any,1}:
+ (:re, 1)
+ (:im, 2)
+```
+"""
+function properties(x::T) where T
+    names = propertynames(x)
+    return Properties{T}(x, length(names), names)
+end
+
+function iterate(p::Properties, state=1)
+    state > length(p) && return nothing
+
+    name = p.names[state]
+    return ((name, getproperty(p.x, name)), state + 1)
+end
+
+# PropertyValues
+
+struct PropertyValues{T}
+    x::T
+    n::Int
+    names
+end
+
+"""
+    propertyvalues(x)
+
+Iterate through the values of the properties of `x`.
+
+```jldoctest
+julia> collect(propertyvalues(1 + 2im))
+2-element Array{Any,1}:
+ 1
+ 2
+```
+"""
+
+function propertyvalues(x::T) where T
+    names = propertynames(x)
+    return PropertyValues{T}(x, length(names), names)
+end
+
+function iterate(p::PropertyValues, state=1)
+    state > length(p) && return nothing
+
+    name = p.names[state]
+    return (getproperty(p.x, name), state + 1)
+end
+
+length(p::Union{Properties, PropertyValues}) = p.n
+IteratorSize(::Type{<:Union{Properties, PropertyValues}}) = HasLength()
+
+# FieldValues
+
+struct FieldValues{T}
+    x::T
+end
+
+"""
+    fieldvalues(x)
+
+Iterate through the values of the fields of `x`.
+
+```jldoctest
+julia> collect(fieldvalues(1 + 2im))
+2-element Array{Any,1}:
+ 1
+ 2
+```
+"""
+fieldvalues(x::T) where {T} = FieldValues{T}(x)
+length(fs::FieldValues{T}) where {T} = fieldcount(T)
+IteratorSize(::Type{<:FieldValues}) = HasLength()
+
+function iterate(fs::FieldValues, state=1)
+    state > length(fs) && return nothing
+
+    return (getfield(fs.x, state), state + 1)
+end
 
 end # module IterTools
